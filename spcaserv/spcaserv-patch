@@ -1,0 +1,18 @@
+diff -uNr spcaserv/Makefile spcaserv-mine/Makefile
+--- spcaserv/Makefile	2006-10-16 13:15:08.000000000 +1300
++++ spcaserv-mine/Makefile	2012-07-17 22:55:57.843938000 +1200
+@@ -8,11 +8,11 @@
+ APP_BINARY=spcaview
+ BIN=/usr/local/bin
+ 
+-SERVFLAGS= -O2 -DLINUX $(WARNINGS)
+-MATH_LIB=-lm 
++SERVFLAGS= -O2 -DLINUX $(WARNINGS) -I$(KERNELDIR)/include/ -I./../include/
++MATH_LIB=-lm
+ SERVLIBS= $(MATH_LIB) -lpthread
+ 
+-CC = mipsel-uclibc-gcc
++#CC = mips-openwrt-linux-gcc
+ OBJSERVER= server.o spcav4l.o utils.o tcputils.o pargpio.o encoder.o huffman.o marker.o quant.o
+ 
+ all: spcaserv
