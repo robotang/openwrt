@@ -5,7 +5,7 @@
 export TOPDIR=~/dev/openwrt/trunk
 export STAGING_DIR=${TOPDIR}/staging_dir/toolchain-mips_r2_gcc-4.6-linaro_uClibc-0.9.33
 export PATH=${STAGING_DIR}/bin:${PATH}
-export KERNELDIR=${TOPDIR}/build_dir/linux-ar71xx_generic/linux-3.2.5/
+export KERNELDIR=${TOPDIR}/build_dir/linux-ar71xx_generic/linux-3.2.5
 export PACKAGEDIR=${TOPDIR}/bin/ar71xx/packages
 
 unset CFLAGS CPPFLAGS CXXFLAGS LDFLAGS MACHINE
