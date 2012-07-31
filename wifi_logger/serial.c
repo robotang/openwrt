@@ -50,44 +50,44 @@ int serial_init(const char *dev, int baud, bool blocking)
         fcntl(fd, F_SETFL, FNDELAY);
 
     tcflush(fd, TCIFLUSH);
-	tcgetattr(fd, &options);
-	
-	switch(baud)
-	{
+    tcgetattr(fd, &options);
+    
+    switch(baud)
+    {
         case 4800:
         {
             cfsetispeed(&options, B4800);
             cfsetospeed(&options, B4800);
         } break;
         
-        case 9600:	
+        case 9600:    
         {
-            cfsetispeed(&options, B9600); 
-            cfsetospeed(&options, B9600); 		
+            cfsetispeed(&options, B9600);
+            cfsetospeed(&options, B9600);
         } break;
         
-        case 38400:	
+        case 38400:
         {
-            cfsetispeed(&options, B38400); 
-            cfsetospeed(&options, B38400); 				
+            cfsetispeed(&options, B38400);
+            cfsetospeed(&options, B38400);
         } break;
         
-        case 57600:	
+        case 57600:
         {
-            cfsetispeed(&options, B57600); 
-            cfsetospeed(&options, B57600); 				
+            cfsetispeed(&options, B57600);
+            cfsetospeed(&options, B57600);
         } break;
         
-        case 115200:	
+        case 115200:    
         {
-            cfsetispeed(&options, B115200); 
-            cfsetospeed(&options, B115200); 				
+            cfsetispeed(&options, B115200);
+            cfsetospeed(&options, B115200);
         } break;
         
-        default:	
+        default:
         {
-            cfsetispeed(&options, B9600); 
-            cfsetospeed(&options, B9600); 				
+            cfsetispeed(&options, B9600);
+            cfsetospeed(&options, B9600);
         } break;
     }
         
