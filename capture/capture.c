@@ -22,6 +22,8 @@
 
 #include <linux/videodev2.h>
 
+#include <unistd.h>
+
 #define CLEAR(x) memset (&(x), 0, sizeof (x))
 
 typedef enum
@@ -46,7 +48,7 @@ struct buffer *buffers = NULL;
 static unsigned int n_buffers = 0;
 static unsigned int width = 640;
 static unsigned int height = 480;
-static unsigned int count = 100;
+static unsigned int count = 10000;
 
 static void errno_exit(const char *s)
 {
@@ -222,6 +224,8 @@ static void mainloop(void)
 	  /* Timeout. */
 	  tv.tv_sec = 2;
 	  tv.tv_usec = 0;
+
+ 	  sleep(1);
 
 	  r = select(fd + 1, &fds, NULL, NULL, &tv);
 
