@@ -89,6 +89,7 @@ int wifi_scan(wifi_scan_t *scan)
     {
         if((errno != EPERM))
         {
+            printf("sdfsdfdffhgdfg\n");
             printf("%-8.16s  Interface doesn't support scanning : %s\n\n", interface, strerror(errno));
             return -1;
         }

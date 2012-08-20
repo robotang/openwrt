@@ -2,7 +2,9 @@ ifeq ($(CROSS_COMPILE),)
 CC = gcc
 endif
 
+ifneq ($(CROSS_COMPILE),)
 CPATH=${TOPDIR}/build_dir/target-mips_r2_uClibc-0.9.33/wireless_tools.29
+endif
 
 all:
 	${CC} wifi_logger.c gps.c serial.c wifi_scan.c ini.c -Wall -g -liw -o wifi_logger

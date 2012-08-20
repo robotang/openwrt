@@ -1,6 +1,4 @@
 /*
- *  Captures frames from a webcamera device and writes them to disk  
- *
  *  Copyright (C) 2012, Robert Tang <opensource@robotang.co.nz>
  *
  *  This is free software; you can redistribute it and/or
@@ -17,30 +15,31 @@
  *  along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "camera.h"
-#include <unistd.h>
+#ifndef CAMERA_H
+#define CAMERA_H
 
-#define OUTPUT_DIR      "/tmp"
-#define MSLEEP(x)       usleep(1000*(x))
+#include <stdint.h>
+#include <string.h>
 
-int main(int argc, char *argv[])
+enum {IO_METHOD_READ = 1, IO_METHOD_MMAP, IO_METHOD_USERPTR};
+
+typedef struct
 {
-    int i = 10;
-    camera_t camera;
-    
-    camera_init(&camera, "/dev/video0");
-    
-    while(i > 0)
-    {
-        camera_grab(&camera);
-        camera_save(&camera, OUTPUT_DIR); 
-        i--;
-        
-        MSLEEP(1000);
-    }
+    void *start;
+    size_t length;
+} channel_t;
 
-    camera_close(&camera);
+typedef struct
+{
+    int width, height, io, fd, pixel_format, n_channels;
+    char dev_name[100];
+    channel_t *channel;
+} camera_t;
 
-    return 0;
-}
+int camera_init(camera_t *camera, const char *dev_name);
+int camera_grab(camera_t *camera);
+int camera_save(camera_t *camera, const char *output_dir);
+int camera_close(camera_t *camera);
+
+#endif
 
