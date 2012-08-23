@@ -70,12 +70,14 @@ int camera_init(camera_t *camera, const char *dev_name)
     if((camera->io != IO_METHOD_READ) || (camera->io != IO_METHOD_MMAP) || (camera->io != IO_METHOD_USERPTR))
         camera->io = IO_METHOD_MMAP;
 
-    camera->n_channels = 4;
+    camera->n_buffers = NUM_BUFFERS;
     camera->pixel_format = V4L2_PIX_FMT_YUV420;
+    camera->current_buffer = 0;
     
     open_camera(camera);
     init_camera(camera);
     start_capture(camera);
+    
     return 0;
 }
 
@@ -93,7 +95,6 @@ int camera_save(camera_t *camera, const char *output_dir)
     ssize_t written = 0;
 
     snprintf(filename, sizeof(filename), "%s/webcam-%5.5d.%s", output_dir, i++, camera->pixel_format == V4L2_PIX_FMT_YUV420 ? "yuv" : "raw");
-
     fd = open(filename, O_CREAT | O_WRONLY | O_TRUNC, S_IRUSR | S_IWUSR);
     if(fd < 0)
     {
@@ -104,7 +105,7 @@ int camera_save(camera_t *camera, const char *output_dir)
     do
     {
         int ret;
-        ret = write(fd, camera->channel[0].start + written, camera->channel[0].length - written);
+        ret = write(fd, camera->buffer[camera->current_buffer].start + written, camera->buffer_length - written);
         if (ret < 0)
         {
             fputc('+', stdout);
@@ -112,7 +113,7 @@ int camera_save(camera_t *camera, const char *output_dir)
             return -1;
         }
         written += ret;
-    } while (written < camera->channel[0].length);
+    } while (written < camera->buffer_length);
     close(fd);
 
     fputc('.', stdout);
@@ -302,7 +303,7 @@ static void start_capture(camera_t *camera)
 
         case IO_METHOD_MMAP:
         {
-            for(i = 0; i < camera->n_channels; ++i)
+            for(i = 0; i < camera->n_buffers; ++i)
             {
                 struct v4l2_buffer buf;
 
@@ -324,7 +325,7 @@ static void start_capture(camera_t *camera)
 
         case IO_METHOD_USERPTR:
         {
-            for(i = 0; i < camera->n_channels; ++i)
+            for(i = 0; i < camera->n_buffers; ++i)
             {
                 struct v4l2_buffer buf;
 
@@ -332,8 +333,8 @@ static void start_capture(camera_t *camera)
 
                 buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
                 buf.memory = V4L2_MEMORY_USERPTR;
-                buf.m.userptr = (unsigned long) camera->channel[i].start;
-                buf.length = camera->channel[i].length;
+                buf.m.userptr = (unsigned long) camera->buffer[i].start;
+                buf.length = camera->buffer[i].length;
 
                 if(xioctl(camera->fd, VIDIOC_QBUF, &buf) == -1)
                     errno_exit("VIDIOC_QBUF");
@@ -361,7 +362,7 @@ static int read_frame(camera_t *camera)
             total_read_bytes = 0;
             do
             {
-                read_bytes = read(camera->fd, camera->channel[0].start, camera->channel[0].length);
+                read_bytes = read(camera->fd, camera->buffer[0].start, camera->buffer[0].length);
                 if(read_bytes < 0)
                 {
                     switch(errno)
@@ -375,7 +376,10 @@ static int read_frame(camera_t *camera)
                 }
                 total_read_bytes += read_bytes;
 
-            } while(total_read_bytes < camera->channel[0].length);
+            } while(total_read_bytes < camera->buffer[0].length);
+            
+            camera->current_buffer = 0;
+            camera->buffer_length = camera->buffer[0].length;            
         } break;
 
         case IO_METHOD_MMAP:
@@ -402,7 +406,9 @@ static int read_frame(camera_t *camera)
                 }
             }
 
-            assert(buf.index < camera->n_channels);
+            assert(buf.index < camera->n_buffers);
+            camera->current_buffer = buf.index;
+            camera->buffer_length = buf.length;
 
             if(xioctl(camera->fd, VIDIOC_QBUF, &buf) == -1)
                 errno_exit("VIDIOC_QBUF");
@@ -432,13 +438,16 @@ static int read_frame(camera_t *camera)
                 }
             }
 
-            for(i = 0; i < camera->n_channels; ++i)
+            for(i = 0; i < camera->n_buffers; ++i)
             {
-                if(buf.m.userptr == (unsigned long) camera->channel[i].start && buf.length == camera->channel[i].length)
+                if(buf.m.userptr == (unsigned long) camera->buffer[i].start && buf.length == camera->buffer[i].length)
                     break;
             }
             
-            assert(i < camera->n_channels);
+            assert(i < camera->n_buffers);
+
+            camera->current_buffer = i;
+            camera->buffer_length = buf.length;   
 
             if(xioctl(camera->fd, VIDIOC_QBUF, &buf) == -1)
                 errno_exit("VIDIOC_QBUF");
@@ -477,42 +486,42 @@ static void uninit_camera(camera_t *camera)
     {
         case IO_METHOD_READ:
         {
-            free(camera->channel[0].start);
+            free(camera->buffer[0].start);
         } break;
 
         case IO_METHOD_MMAP:
         {
-            for(i = 0; i < camera->n_channels; ++i)
+            for(i = 0; i < camera->n_buffers; ++i)
             {    
-                if(munmap(camera->channel[i].start, camera->channel[i].length) == -1)
+                if(munmap(camera->buffer[i].start, camera->buffer[i].length) == -1)
                     errno_exit("munmap");
             }
         } break;
 
         case IO_METHOD_USERPTR:
         {
-            for (i = 0; i < camera->n_channels; ++i)
-                free(camera->channel[i].start);
+            for (i = 0; i < camera->n_buffers; ++i)
+                free(camera->buffer[i].start);
         } break;
     }
 
-    free(camera->channel);
+    free(camera->buffer);
 }
 
 static void init_read(camera_t *camera, unsigned int buffer_size)
 {
-    camera->channel = calloc(1, sizeof(camera->channel));
+    camera->buffer = calloc(1, sizeof(camera->buffer));
 
-    if(!camera->channel)
+    if(!camera->buffer)
     {
         fprintf(stderr, "Out of memory\n");
         exit(EXIT_FAILURE);
     }
 
-    camera->channel[0].length = buffer_size;
-    camera->channel[0].start = malloc(buffer_size);
+    camera->buffer[0].length = buffer_size;
+    camera->buffer[0].start = malloc(buffer_size);
 
-    if(!camera->channel[0].start)
+    if(!camera->buffer[0].start)
     {
         fprintf(stderr, "Out of memory\n");
         exit(EXIT_FAILURE);
@@ -526,7 +535,7 @@ static void init_mmap(camera_t *camera)
 
     CLEAR(req);
 
-    req.count = camera->n_channels;
+    req.count = camera->n_buffers;
     req.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     req.memory = V4L2_MEMORY_MMAP;
 
@@ -549,15 +558,15 @@ static void init_mmap(camera_t *camera)
         exit(EXIT_FAILURE);
     }
 
-    camera->channel = calloc(req.count, sizeof(camera->channel));
+    camera->buffer = calloc(req.count, sizeof(camera->buffer));
 
-    if(!camera->channel)
+    if(!camera->buffer)
     {
         fprintf(stderr, "Out of memory\n");
         exit(EXIT_FAILURE);
     }
 
-    for(i = 0; i < camera->n_channels; ++i)
+    for(i = 0; i < camera->n_buffers; ++i)
     {
         struct v4l2_buffer buf;
 
@@ -570,14 +579,14 @@ static void init_mmap(camera_t *camera)
         if(xioctl(camera->fd, VIDIOC_QUERYBUF, &buf) == -1)
             errno_exit("VIDIOC_QUERYBUF");
 
-        camera->channel[i].length = buf.length;
-        camera->channel[i].start = mmap(NULL /* start anywhere */,
+        camera->buffer[i].length = buf.length;
+        camera->buffer[i].start = mmap(NULL /* start anywhere */,
                 buf.length,
                 PROT_READ | PROT_WRITE /* required */,
                 MAP_SHARED /* recommended */,
                 camera->fd, buf.m.offset);
 
-        if(camera->channel[i].start == MAP_FAILED)
+        if(camera->buffer[i].start == MAP_FAILED)
             errno_exit("mmap");
     }
 }
@@ -589,7 +598,7 @@ static void init_userp(camera_t *camera, unsigned int buffer_size)
 
     CLEAR(req);
 
-    req.count = camera->n_channels;
+    req.count = camera->n_buffers;
     req.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     req.memory = V4L2_MEMORY_USERPTR;
 
@@ -606,20 +615,20 @@ static void init_userp(camera_t *camera, unsigned int buffer_size)
         }
     }
 
-    camera->channel = calloc(4, sizeof(camera->channel));
+    camera->buffer = calloc(4, sizeof(camera->buffer));
 
-    if(!camera->channel)
+    if(!camera->buffer)
     {
         fprintf(stderr, "Out of memory\n");
         exit(EXIT_FAILURE);
     }
 
-    for(i = 0; i < camera->n_channels; ++i)
+    for(i = 0; i < camera->n_buffers; ++i)
     {
-        camera->channel[i].length = buffer_size;
-        camera->channel[i].start = malloc(buffer_size);
+        camera->buffer[i].length = buffer_size;
+        camera->buffer[i].start = malloc(buffer_size);
 
-        if (!camera->channel[i].start)
+        if (!camera->buffer[i].start)
         {
             fprintf(stderr, "Out of memory\n");
             exit(EXIT_FAILURE);

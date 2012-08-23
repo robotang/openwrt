@@ -21,19 +21,21 @@
 #include <stdint.h>
 #include <string.h>
 
+#define NUM_BUFFERS      4
+
 enum {IO_METHOD_READ = 1, IO_METHOD_MMAP, IO_METHOD_USERPTR};
 
 typedef struct
 {
     void *start;
     size_t length;
-} channel_t;
+} buffer_t;
 
 typedef struct
 {
-    int width, height, io, fd, pixel_format, n_channels;
+    int width, height, io, fd, pixel_format, n_buffers, current_buffer, buffer_length;
     char dev_name[100];
-    channel_t *channel;
+    buffer_t *buffer;
 } camera_t;
 
 int camera_init(camera_t *camera, const char *dev_name);

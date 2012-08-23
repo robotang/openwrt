@@ -25,7 +25,7 @@
 
 int main(int argc, char *argv[])
 {
-    int i = 10;
+    int i = 20;
     camera_t camera;
     
     camera_init(&camera, "/dev/video0");
@@ -36,7 +36,7 @@ int main(int argc, char *argv[])
         camera_save(&camera, OUTPUT_DIR); 
         i--;
         
-        MSLEEP(1000);
+        MSLEEP(200);
     }
 
     camera_close(&camera);
